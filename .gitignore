@@ -1,0 +1,5 @@
+.env*
+.codex
+.python-version
+docker-compose.yml
+Dockerfile
