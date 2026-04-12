@@ -1,5 +1,8 @@
+from backend.app.main import app
+
+
 def main():
-    print("Hello from talktoyourdata-two!")
+    return app
 
 
 if __name__ == "__main__":
