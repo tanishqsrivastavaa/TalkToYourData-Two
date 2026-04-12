@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import get_settings
 from backend.app.db.models import DocumentChunk, DocumentStatus
+from backend.app.modules.common.text import sanitize_metadata, sanitize_text
 from backend.app.modules.documents.schemas import DocumentCreate
 from backend.app.modules.documents.service import DocumentService
 from backend.app.modules.ingestion.chunking import SemanticChunker
@@ -45,21 +46,26 @@ class IngestionService:
         embeddings = await self.embedding_provider.embed_texts([chunk.text for chunk in chunks])
 
         for chunk, embedding in zip(chunks, embeddings, strict=False):
+            chunk_text = sanitize_text(chunk.text).strip()
+            if not chunk_text:
+                continue
+            chunk_metadata = sanitize_metadata(chunk.metadata)
+            section_title = chunk_metadata.get("section_title")
             self.session.add(
                 DocumentChunk(
                     document_id=document.id,
                     chunk_index=chunk.chunk_index,
-                    text=chunk.text,
-                    section_title=str(chunk.metadata.get("section_title")) if chunk.metadata.get("section_title") else None,
-                    page_number=int(chunk.metadata["page_number"]) if "page_number" in chunk.metadata else None,
+                    text=chunk_text,
+                    section_title=str(section_title) if section_title else None,
+                    page_number=int(chunk_metadata["page_number"]) if "page_number" in chunk_metadata else None,
                     token_count=chunk.token_count,
-                    metadata_json=chunk.metadata,
+                    metadata_json=chunk_metadata,
                     embedding=embedding,
                 )
             )
 
         document.status = DocumentStatus.indexed
-        document.metadata_json = parsed.metadata
+        document.metadata_json = sanitize_metadata(parsed.metadata)
         await self.session.commit()
         await self.session.refresh(document)
         return document

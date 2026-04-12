@@ -7,6 +7,7 @@ from fastapi import status
 from fastapi.exceptions import HTTPException
 
 from backend.app.db.models import SourceType
+from backend.app.modules.common.text import sanitize_metadata, sanitize_text
 
 
 @dataclass(slots=True)
@@ -35,10 +36,13 @@ class PlainTextParser(BaseParser):
             raise UnsupportedDocumentError(
                 "Unsupported binary document. Upload PDF, TXT, Markdown, or extracted webpage text.",
             )
-        text = file_bytes.decode("utf-8", errors="ignore").replace("\x00", "").strip()
+        text = sanitize_text(file_bytes).strip()
         if not text:
             raise UnsupportedDocumentError("Document does not contain readable text.")
-        return ParsedDocument(text=text, metadata={"filename": filename})
+        return ParsedDocument(
+            text=text,
+            metadata=sanitize_metadata({"filename": filename}),
+        )
 
 
 class MarkdownParser(PlainTextParser):
@@ -49,9 +53,12 @@ class PdfParser(BaseParser):
     supported_source_type = SourceType.pdf
 
     async def parse(self, file_bytes: bytes, filename: str) -> ParsedDocument:
+        text = sanitize_text(file_bytes).strip()
+        if not text:
+            raise UnsupportedDocumentError("PDF does not contain readable text.")
         return ParsedDocument(
-            text=file_bytes.decode("utf-8", errors="ignore"),
-            metadata={"filename": filename, "warning": "pdf parser fallback"},
+            text=text,
+            metadata=sanitize_metadata({"filename": filename, "warning": "pdf parser fallback"}),
         )
 
 

@@ -79,3 +79,14 @@ def test_query_returns_grounded_sources_for_uploaded_document() -> None:
     assert "attention" in payload["answer"].lower()
     assert payload["sources"]
     assert payload["planner"]["document_ids"] == [document_id]
+
+
+def test_binary_pdf_upload_returns_client_error() -> None:
+    with TestClient(app) as client:
+        upload_response = client.post(
+            "/api/v1/documents/upload",
+            files={"file": ("scan.pdf", b"\x00\xff\xfe\x00", "application/pdf")},
+        )
+
+    assert upload_response.status_code == 400
+    assert "readable text" in upload_response.json()["detail"].lower()
